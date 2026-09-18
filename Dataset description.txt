@@ -1,0 +1,29 @@
+The dataset:
+- time_start: First timestamp of event window.
+- msisdn: Mobile Station International Subscriber Directory Number (better known as "phone number")
+- imsi: International Mobile Subscriber Identity
+- imei: International Mobile Equipment Identity
+- tp_dl_avg: Average download throughput in the aggregation window
+- tp_ul_avg: Average upload throughput in the aggregation window
+- tp_dl_filtered_avg: Average download throughput, filtered for values above a threshold
+- cont_rtt_radio_avg: Average continuous round-trip time in radio communication
+- cont_rtt_internet_avg: Average continuous round-trip time to the internet
+- initial_rtt_radio_avg: Average initial round-trip time in radio communication
+- tcp_retrans_byte_ratio_downlink_avg: Average ratio of TCP retransmission bytes in downlink
+- tcp_retrans_byte_ratio_uplink_avg: Average ratio of TCP retransmission bytes in uplink
+- http_response_time_avg: Average response time for HTTP requests
+- http_sr_avg: Average success rate of HTTP responses
+- data_GB_sum: Total data volume (download + upload) in gigabytes
+- im_video_GB_sum: Total download data volume for video application in gigabytes
+- im_audio_GB_sum: Total download data volume for audio application in gigabytes
+- tethering_data_GB_dl_sum: Total upload data volume in gigabytes via tethered device
+- radio_access_type: The type of radio access technology used
+- province: The province where the event originates from
+- application_category: Type of application used
+- enb: eNodeB/gNodeB identificator
+
+
+
+
+
+
