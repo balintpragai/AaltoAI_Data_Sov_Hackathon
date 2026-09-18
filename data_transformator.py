@@ -9,15 +9,36 @@ Usage:
     python data_transformator.py input.csv output.csv
 """
 
-import csv
+import numpy as np
+import pandas as pd
 import sys
 import argparse
 from datetime import datetime
 
 # Define PII columns to be removed
-PII_COLUMNS = ['msisdn', 'imsi', 'imei']
+PII_COLUMNS = ['msisdn', 'imsi']
 
-def transform_timestamp_to_hours(timestamp_str):
+def pseudonymize_value_imei(imei_value: int) -> int:
+    """
+    Pseudonymize IMEI value by hashing or masking.
+    Args:
+        value: Original IMEI value
+    Returns:
+        Pseudonymized IMEI value (first 8 digits correlating with device type and model)
+    """
+
+    if not imei_value or imei_value == '':
+        return None
+
+    try:
+        imei_pseudonymized = imei_value // 1000000  #% 100000000  # Keep first 8 digits
+
+    except (ValueError, TypeError):
+        imei_pseudonymized = None
+
+    return imei_pseudonymized
+
+def transform_timestamp_to_hours(timestamp: int) -> int:
     """
     Transform timestamp to hours since epoch.
 
@@ -27,21 +48,12 @@ def transform_timestamp_to_hours(timestamp_str):
     Returns:
         Integer representing hours since epoch
     """
-    if not timestamp_str or timestamp_str == '':
+    if not timestamp or timestamp == '':
         return None
 
     try:
-        # Parse the timestamp string
-        timestamp = int(timestamp_str)
-        # Extract components: YYMMDDHHMM
-        year = 2000 + (timestamp // 100000000)
-        month = (timestamp // 1000000) % 100
-        day = (timestamp // 10000) % 100
-        hour = (timestamp // 100) % 100
-        minute = timestamp % 100
-
         # Create datetime object
-        dt = datetime(year, month, day, hour, minute)
+        dt = datetime.fromtimestamp(timestamp)
 
         # Calculate hours since epoch (Unix timestamp / 3600)
         epoch = datetime(1970, 1, 1)
@@ -50,7 +62,7 @@ def transform_timestamp_to_hours(timestamp_str):
         return hours_since_epoch
     except (ValueError, TypeError):
         # If transformation fails, return original value
-        return timestamp_str
+        return timestamp
 
 def anonymize_csv(input_file, output_file):
     """
@@ -60,27 +72,11 @@ def anonymize_csv(input_file, output_file):
         input_file: Path to input CSV file
         output_file: Path to output CSV file
     """
-    with open(input_file, mode='r', newline='', encoding='utf-8') as infile, \
-         open(output_file, mode='w', newline='', encoding='utf-8') as outfile:
-
-        reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
-
-        # Filter out PII columns
-        filtered_fieldnames = [field for field in fieldnames if field not in PII_COLUMNS]
-
-        writer = csv.DictWriter(outfile, fieldnames=filtered_fieldnames)
-        writer.writeheader()
-
-        for row in reader:
-            # Create new row with PII columns removed
-            new_row = {field: row[field] for field in filtered_fieldnames}
-
-            # Transform timestamp if present
-            if 'time_start' in new_row:
-                new_row['time_start'] = transform_timestamp_to_hours(new_row['time_start'])
-
-            writer.writerow(new_row)
+    df = pd.read_csv(input_file)
+    df.drop(columns=PII_COLUMNS, inplace=True, errors='ignore')  # Remove PII columns if they exist
+    df['imei'] = df['imei'].apply(pseudonymize_value_imei)  # Pseudonymize IMEI
+    df['time_start'] = df['time_start'].apply(transform_timestamp_to_hours)  # Transform timestamps
+    df.to_csv(output_file, index=False)
 
 def main():
     """Main function to handle command line arguments and execute anonymization."""
