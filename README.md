@@ -14,7 +14,7 @@ pip install -r requirements.txt
 
 The script loads a CSV, derives helper time columns, and runs nine automatable privacy tests. Each test prints one `PASS` / `WARN` / `FAIL` / `SKIP` / `INFO` / `ERROR` line. The worst status becomes the overall result.
 
-It also writes a JSON audit report (default `privacy_report.json`) with:
+It also writes a JSON audit report (default `outputs/privacy_report.json`) with:
 
 - dataset SHA-256
 - row count and column names
@@ -43,13 +43,13 @@ That:
 1. Reads `out.csv`
 2. Auto-detects a subscriber column (`msisdn`, otherwise `imsi`, otherwise none)
 3. Prints the nine test lines
-4. Writes `privacy_report.json`
+4. Writes `outputs/privacy_report.json`
 
 Useful variants:
 
 ```bash
 # Custom report path
-python tests.py out.csv --out out_privacy_report.json
+python tests.py out.csv --out outputs/out_privacy_report.json
 
 # Helsinki hour-of-day for the home-cell test (T5)
 python tests.py out.csv --tz Europe/Helsinki
@@ -70,7 +70,7 @@ python tests.py --demo raw        # weak synthetic data; should FAIL several tes
 python tests.py --demo hardened   # mitigated synthetic data
 ```
 
-`--demo raw` also writes `demo_raw.csv` and tries a small MSISDN hash brute-force (`--msisdn-prefix +358401`).
+`--demo raw` also writes `outputs/demo_raw.csv` and tries a small MSISDN hash brute-force (`--msisdn-prefix +358401`).
 
 ---
 
@@ -87,13 +87,13 @@ That:
 
 1. Reads `out.csv`
 2. Plots every pair among the given columns (`data_GB_sum` vs `tp_dl_avg`, `data_GB_sum` vs `tp_ul_avg`, `tp_dl_avg` vs `tp_ul_avg`)
-3. Saves PNGs in the current directory
+3. Saves PNGs in `outputs/`
 
 Useful variants:
 
 ```bash
 # Write plots into a folder
-python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg tp_ul_avg --output-dir plots
+python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg tp_ul_avg --output-dir outputs
 
 # Sample rows first on large files
 python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg --sample 10000
@@ -199,7 +199,7 @@ Risk is `(member_acc − control_acc) / (1 − control_acc)`. Warn ≥ 0.05, fai
 | `csv`                                 | —                     | Release-candidate path (required unless `--demo`) |
 | `--holdout`                           | —                     | Control CSV of non-members                        |
 | `--user-col`                          | `msisdn` then `imsi`  | Subscriber / token column                         |
-| `--out`                               | `privacy_report.json` | JSON report path                                  |
+| `--out`                               | `outputs/privacy_report.json` | JSON report path                                  |
 | `--demo`                              | —                     | `raw` or `hardened` synthetic data                |
 | `--tz`                                | `UTC`                 | Time zone for hour-of-day                         |
 | `--seed`                              | `0`                   | RNG seed                                          |
@@ -247,7 +247,7 @@ File: out.csv | rows: 12,345 | subscriber column: None
 ...
 ------------------------------------------------------------------------------
 OVERALL: WARN  (heuristic thresholds; see excluded tests before any claim of anonymity)
-Full report: privacy_report.json
+Full report: outputs/privacy_report.json
 ```
 
-Open `privacy_report.json` for per-QI k values, unicity rates, re-link top-1/top-5, and inference risk. Do not treat `PASS` as a legal sign-off.
+Open `outputs/privacy_report.json` for per-QI k values, unicity rates, re-link top-1/top-5, and inference risk. Do not treat `PASS` as a legal sign-off.

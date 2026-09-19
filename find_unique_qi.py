@@ -10,7 +10,7 @@ Usage:
     python find_unique_qi.py out.csv --k-max 9
     python find_unique_qi.py out.csv --qi _hour province radio_access_type
     python find_unique_qi.py out.csv --fix
-    python find_unique_qi.py out.csv --k-max 9 --fix --output out_k10.csv
+    python find_unique_qi.py out.csv --k-max 9 --fix --output outputs/out_k10.csv
 
 --fix prompts for drop vs anonymize. Anonymize asks which column to set to
 RESTRICTED on small-class rows only.
@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 import pandas as pd
 
@@ -87,8 +88,10 @@ def ask_anonymize_column(df: pd.DataFrame) -> str:
 
 
 def write_release(df: pd.DataFrame, path: str) -> None:
+    dest = Path(path)
+    dest.parent.mkdir(parents=True, exist_ok=True)
     out = df.drop(columns=[c for c in HELPER_COLS if c in df.columns], errors="ignore")
-    out.to_csv(path, index=False)
+    out.to_csv(dest, index=False)
 
 
 def main() -> None:
@@ -115,7 +118,7 @@ def main() -> None:
     )
     p.add_argument(
         "--output",
-        help="CSV path for --fix (default: overwrite the input file)",
+        help="CSV path for --fix (default: outputs/<input filename>)",
     )
     args = p.parse_args()
 
@@ -140,7 +143,11 @@ def main() -> None:
     }
 
     if args.fix:
-        out_path = args.output or args.csv
+        if args.output:
+            chosen = Path(args.output)
+            out_path = str(chosen if chosen.parent != Path(".") else Path("outputs") / chosen.name)
+        else:
+            out_path = str(Path("outputs") / Path(args.csv).name)
         action = ask_fix_action()
         header["fix_action"] = action
         if action == "drop":

@@ -5,7 +5,7 @@ value-distribution bar plot.
 
 Usage:
     python column_stats.py out.csv
-    python column_stats.py out.csv --output-dir column_stats
+    python column_stats.py out.csv --output-dir outputs
     python column_stats.py out.csv --top-n 25
 """
 from __future__ import annotations
@@ -142,8 +142,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--output-dir",
         "-o",
-        default="column_stats",
-        help="Directory for CSV/JSON summaries and PNG plots (default: column_stats)",
+        default="outputs/column_stats",
+        help="Directory for CSV/JSON summaries and PNG plots (default: outputs)",
     )
     parser.add_argument(
         "--top-n",

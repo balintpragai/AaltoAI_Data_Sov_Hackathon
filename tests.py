@@ -32,6 +32,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -527,7 +528,7 @@ def main():
     ap.add_argument("csv", nargs="?", help="release-candidate CSV")
     ap.add_argument("--holdout", help="CSV of subscribers NOT in the release, same pipeline (control set)")
     ap.add_argument("--user-col", help="subscriber/pseudonym column (default: msisdn, else imsi)")
-    ap.add_argument("--out", default="privacy_report.json")
+    ap.add_argument("--out", default="outputs/privacy_report.json")
     ap.add_argument("--demo", choices=["raw", "hardened"], help="generate and test synthetic data")
     ap.add_argument("--tz", default="UTC", help="time zone for hour-of-day (e.g. Europe/Helsinki)")
     ap.add_argument("--seed", type=int, default=0)
@@ -546,10 +547,11 @@ def main():
     ap.add_argument("--max-candidates", type=int, default=3_000_000)
     ap.add_argument("--n-targets", type=int, default=200)
     a = ap.parse_args()
-
+    Path("outputs").mkdir(parents=True, exist_ok=True)
     if a.demo:
         df = make_demo(a.demo)
-        a.csv = f"demo_{a.demo}.csv"
+    
+        a.csv = str(Path("outputs") / f"demo_{a.demo}.csv")
         df.to_csv(a.csv, index=False)
         if a.demo == "raw":
             a.msisdn_prefix, a.msisdn_digits = "+358401", 5
@@ -583,7 +585,9 @@ def main():
                   rows=len(df), columns=[c for c in df.columns if not c.startswith("_")],
                   parameters={k: v for k, v in vars(a).items()}, python=platform.python_version(),
                   pandas=pd.__version__, numpy=np.__version__, overall=overall, results=results)
-    with open(a.out, "w") as f:
+    out_path = Path("outputs") / Path(a.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(out_path, "w") as f:
         json.dump(report, f, indent=2, default=lambda o: o.item() if hasattr(o, "item") else str(o))
     print(f"Full report: {a.out}")
     sys.exit(2 if overall in ("FAIL", "ERROR") else 0)

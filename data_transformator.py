@@ -6,7 +6,7 @@ This script takes a CSV file as input, removes PII columns, transforms timestamp
 and outputs an anonymized CSV file.
 
 Usage:
-    python data_transformator.py input.csv output.csv
+    python data_transformator.py input.csv outputs/out.csv
 """
 
 import numpy as np
@@ -14,6 +14,7 @@ import pandas as pd
 import sys
 import argparse
 from datetime import datetime
+from pathlib import Path
 
 # Define PII columns to be removed
 PII_COLUMNS = ['msisdn', 'imsi']
@@ -76,7 +77,10 @@ def anonymize_csv(input_file, output_file):
     df.drop(columns=PII_COLUMNS, inplace=True, errors='ignore')  # Remove PII columns if they exist
     df['imei'] = df['imei'].apply(pseudonymize_value_imei)  # Pseudonymize IMEI
     df['time_start'] = df['time_start'].apply(transform_timestamp_to_hours)  # Transform timestamps
-    df.to_csv(output_file, index=False)
+    dest = Path("outputs") / Path(output_file).name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(dest, index=False)
+    return dest
 
 def main():
     """Main function to handle command line arguments and execute anonymization."""
@@ -86,8 +90,8 @@ def main():
     args = parser.parse_args()
 
     try:
-        anonymize_csv(args.input_file, args.output_file)
-        print(f"Successfully anonymized data. Output saved to {args.output_file}")
+        dest = anonymize_csv(args.input_file, args.output_file)
+        print(f"Successfully anonymized data. Output saved to {dest}")
     except Exception as e:
         print(f"Error: {e}")
         sys.exit(1)
