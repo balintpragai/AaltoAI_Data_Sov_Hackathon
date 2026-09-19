@@ -219,9 +219,6 @@ Raw CSV files copied to laptops, notebooks, shared drives, chat tools.
 - Retention period and who holds pseudonymisation keys.
 - Whether hackathon participants are internal or external, and where they are located.
 - Whether outputs feed any AI system (AI Act classification) and current AI Act application dates.
-- Correct definition of `tethering_data_GB_dl_sum`.
-
-
 
 ## 10. References
 
