@@ -15,6 +15,7 @@ logs/
 *__pycache__/
 
 *.csv
+*.json
 
 # Platform-managed agentplat state, not project source. In the
 # client-initiated single-repo workspace layout (make's `Path: "."` spec) the
