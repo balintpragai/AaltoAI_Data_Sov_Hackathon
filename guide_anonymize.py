@@ -135,7 +135,7 @@ def round_numeric_precision(df: pd.DataFrame, report: dict, sig_figs: int) -> pd
 
 def _qi_columns(df: pd.DataFrame) -> list[str]:
     enb_col = find_enb_col(df)
-    qi_cols = [c for c in BASE_QI_COLUMNS if c in df.columns]
+    qi_cols = [c for c in BASE_QI_COLUMNS + [IMEI_COL] if c in df.columns]
     if TIME_COL in df.columns:
         qi_cols = [TIME_COL] + qi_cols
     if enb_col:
