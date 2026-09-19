@@ -25,3 +25,4 @@ outputs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+.agents
