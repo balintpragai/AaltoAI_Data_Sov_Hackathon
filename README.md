@@ -2,10 +2,10 @@
 
 Privacy test suite for a mobile-network dataset release. Run `tests.py` on the **anonymised release candidate** (for example `out.csv`), not on the raw file.
 
-Requires **Python 3.9+**, **pandas**, and **numpy**.
+Requires **Python 3.9+**, **pandas**, **numpy**, and **matplotlib** (for scatter plots).
 
 ```bash
-pip install pandas numpy
+pip install -r requirements.txt
 ```
 
 ---
@@ -26,6 +26,8 @@ Exit code is **2** if the overall result is `FAIL` or `ERROR`, otherwise **0**.
 Thresholds are engineering heuristics, not legal limits. A `PASS` means these specific attacks did not succeed on this file. It is **not** proof of anonymity under GDPR Recital 26.
 
 ---
+
+
 
 ## How to use it with `out.csv`
 
@@ -72,18 +74,49 @@ python tests.py --demo hardened   # mitigated synthetic data
 
 ---
 
+## How to use `scatter_plots.py`
+
+`scatter_plots.py` reads a CSV and a list of column names, then writes one scatter plot for every unique pair of those columns. Each file is named `column1_column2.png`.
+
+```bash
+# From the repo root
+python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg tp_ul_avg
+```
+
+That:
+
+1. Reads `out.csv`
+2. Plots every pair among the given columns (`data_GB_sum` vs `tp_dl_avg`, `data_GB_sum` vs `tp_ul_avg`, `tp_dl_avg` vs `tp_ul_avg`)
+3. Saves PNGs in the current directory
+
+Useful variants:
+
+```bash
+# Write plots into a folder
+python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg tp_ul_avg --output-dir plots
+
+# Sample rows first on large files
+python scatter_plots.py out.csv --columns data_GB_sum tp_dl_avg --sample 10000
+```
+
+Non-numeric values are treated as missing and dropped for that pair. Unknown column names exit with the list of columns in the file.
+
+---
+
 ## Expected columns
 
 The suite is built for this schema (`Dataset description.txt`):
 
-| Column | Role in tests |
-|---|---|
-| `time_start` | Hour bucket, hour-of-day, split for re-link |
-| `msisdn`, `imsi`, `imei` | Identifiers / subscriber token |
-| `enb`, `province`, `radio_access_type` | Quasi-identifiers |
-| `application_category` | Sensitive inference (T8, T9) |
-| `data_GB_sum`, `im_video_GB_sum`, `im_audio_GB_sum`, `tethering_data_GB_dl_sum` | Volume fingerprints |
-| Throughput / RTT / HTTP metric columns | Re-link fingerprints (T6, T7) |
+
+| Column                                                                          | Role in tests                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------- |
+| `time_start`                                                                    | Hour bucket, hour-of-day, split for re-link |
+| `msisdn`, `imsi`, `imei`                                                        | Identifiers / subscriber token              |
+| `enb`, `province`, `radio_access_type`                                          | Quasi-identifiers                           |
+| `application_category`                                                          | Sensitive inference (T8, T9)                |
+| `data_GB_sum`, `im_video_GB_sum`, `im_audio_GB_sum`, `tethering_data_GB_dl_sum` | Volume fingerprints                         |
+| Throughput / RTT / HTTP metric columns                                          | Re-link fingerprints (T6, T7)               |
+
 
 Missing columns cause the tests that need them to `SKIP`, not fail the whole run.
 
@@ -91,7 +124,11 @@ Missing columns cause the tests that need them to `SKIP`, not fail the whole run
 
 ---
 
+
+
 ## The nine tests
+
+
 
 ### T1 — Identifier scan
 
@@ -101,6 +138,8 @@ Samples non-float columns (except `time_start`) and looks for IMEI-like (15 digi
 - `WARN` if hits exist but stay below 1%
 - Cell IDs that happen to be 15 digits can be false positives
 
+
+
 ### T2 — Pseudonym brute-force
 
 Attacks the subscriber column (`msisdn` or `imsi`):
@@ -109,6 +148,8 @@ Attacks the subscriber column (`msisdn` or `imsi`):
 - Opaque non-hex tokens → `PASS` (mapping-table leakage is out of scope)
 - Hex digests (MD5/SHA) without `--msisdn-prefix` → `WARN`
 - With `--msisdn-prefix` / `--msisdn-digits`, enumerates candidates and tries to reverse unkeyed hashes
+
+
 
 ### T3 — k-anonymity / risk
 
@@ -148,43 +189,51 @@ Risk is `(member_acc − control_acc) / (1 − control_acc)`. Warn ≥ 0.05, fai
 
 ---
 
+
+
 ## Command-line options
 
-| Flag | Default | Meaning |
-|---|---|---|
-| `csv` | — | Release-candidate path (required unless `--demo`) |
-| `--holdout` | — | Control CSV of non-members |
-| `--user-col` | `msisdn` then `imsi` | Subscriber / token column |
-| `--out` | `privacy_report.json` | JSON report path |
-| `--demo` | — | `raw` or `hardened` synthetic data |
-| `--tz` | `UTC` | Time zone for hour-of-day |
-| `--seed` | `0` | RNG seed |
-| `--k-min` | `10` | k-anonymity target |
-| `--max-share-below-k` | `0.01` | T3 warn threshold |
-| `--unicity-warn` / `--unicity-fail` | `0.01` / `0.05` | T4 thresholds |
-| `--t-close` | `0.3` | T8 t-closeness |
-| `--n-samples` | `500` | Unicity samples per `p` |
-| `--n-attacks` | `1000` | T9 attacks per group |
-| `--max-users` | `2000` | T6 subscriber cap |
-| `--scan-rows` | `100000` | T1 sample size |
-| `--mcc-mnc` | empty | Tighten IMSI prefix in T1 |
-| `--msisdn-prefix` / `--msisdn-digits` | empty / `9` | Enable T2 hash enumeration |
-| `--max-candidates` | `3000000` | T2 search budget |
-| `--n-targets` | `200` | T2 hashes to recover |
+
+| Flag                                  | Default               | Meaning                                           |
+| ------------------------------------- | --------------------- | ------------------------------------------------- |
+| `csv`                                 | —                     | Release-candidate path (required unless `--demo`) |
+| `--holdout`                           | —                     | Control CSV of non-members                        |
+| `--user-col`                          | `msisdn` then `imsi`  | Subscriber / token column                         |
+| `--out`                               | `privacy_report.json` | JSON report path                                  |
+| `--demo`                              | —                     | `raw` or `hardened` synthetic data                |
+| `--tz`                                | `UTC`                 | Time zone for hour-of-day                         |
+| `--seed`                              | `0`                   | RNG seed                                          |
+| `--k-min`                             | `10`                  | k-anonymity target                                |
+| `--max-share-below-k`                 | `0.01`                | T3 warn threshold                                 |
+| `--unicity-warn` / `--unicity-fail`   | `0.01` / `0.05`       | T4 thresholds                                     |
+| `--t-close`                           | `0.3`                 | T8 t-closeness                                    |
+| `--n-samples`                         | `500`                 | Unicity samples per `p`                           |
+| `--n-attacks`                         | `1000`                | T9 attacks per group                              |
+| `--max-users`                         | `2000`                | T6 subscriber cap                                 |
+| `--scan-rows`                         | `100000`              | T1 sample size                                    |
+| `--mcc-mnc`                           | empty                 | Tighten IMSI prefix in T1                         |
+| `--msisdn-prefix` / `--msisdn-digits` | empty / `9`           | Enable T2 hash enumeration                        |
+| `--max-candidates`                    | `3000000`             | T2 search budget                                  |
+| `--n-targets`                         | `200`                 | T2 hashes to recover                              |
+
 
 ---
+
+
 
 ## How the script is structured
 
 1. **Schema constants** — identifier, volume, metric, and QI column names.
 2. **Helpers** — Luhn (IMEI), timestamp prep (`_ts`, `_hour`, `_hod`), k per equivalence class, modal cell.
 3. **Tests T1–T9** — each returns `{test, status, summary, details}`.
-4. **`make_demo`** — synthetic “raw” vs “hardened” data for a dry run.
-5. **`main`** — argparse, load CSV (IDs as strings), run tests, print table, write JSON, set exit code.
+4. `make_demo` — synthetic “raw” vs “hardened” data for a dry run.
+5. `main` — argparse, load CSV (IDs as strings), run tests, print table, write JSON, set exit code.
 
 A test exception becomes `ERROR` for that test; the rest of the suite still runs.
 
 ---
+
+
 
 ## Reading the result
 
