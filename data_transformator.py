@@ -31,7 +31,7 @@ def pseudonymize_value_imei(imei_value: int) -> int:
         return None
 
     try:
-        imei_pseudonymized = imei_value // 1000000  #% 100000000  # Keep first 8 digits
+        imei_pseudonymized = imei_value // 10000000  #% 100000000  # Keep first 8 digits
 
     except (ValueError, TypeError):
         imei_pseudonymized = None
