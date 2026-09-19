@@ -1,0 +1,7 @@
+# Privacy review is advisory, on a redacted profile, via EU-hosted chat
+
+We want a model to help flag column sensitivity, map checks to `tests.py` (T1–T9), and list open questions, without sending rows or unredacted distributions off-box, and without the model becoming the anonymiser. The model is called only with a redacted column profile (plus the policy pack) over OpenAI-compatible Chat Completions against an env-configured EU/on-prem `BASE_URL` — never a default `api.openai.com`, never the OpenAI SDK, never inside `guide_anonymize.py`. Output is a JSON privacy review (raw and release-candidate subjects) rendered to markdown; humans sign dispositions (engineer vs data owner for QI/identifier changes) and hand-edit pipeline lists if they agree. Local `column_stats.py` stays exploratory and is not the API payload.
+
+**Considered options:** live OpenAI (or any LLM) inside the transform; sending unredacted value distributions; letting the model emit executable column lists for `guide_anonymize.py` / `tests.py`.
+
+**Consequences:** Treating a file as a shareable release candidate is blocked while any *must-answer* open question is still open (human sets and clears the flag). Redacted profiles and transcripts stay gitignored under `outputs/`; a signed review enters `docs/privacy-reviews/` only after a human checks redaction. The HTTP host needs zero-retention / no-training; locally we keep timestamp, model name, profile hash, and parsed review JSON. Humans run the redacted profiler on real CSVs; synthetic fixtures only for automated/agent tests.
