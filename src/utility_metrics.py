@@ -162,6 +162,13 @@ def m3_completeness(orig, anon, out, detail):
 
 
 def m4_distributions(orig, anon, out, detail, rng, n):
+    """
+    Performs the two-sample Kolmogorov-Smirnov test for goodness of fit.
+    
+        This test compares the underlying continuous distributions F(x) and G(x)
+        of two independent samples.
+    """
+
     cols = [c for c in KPI if c in orig and c in anon]
     stats = []
     for c in cols:
