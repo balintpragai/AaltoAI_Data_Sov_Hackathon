@@ -311,11 +311,11 @@ Different entities may be relevant in different capacities. For example, an indi
 >
 > | Sex | Date of birth | Postcode | Disease |
 > | --- | --- | --- | --- |
-> | Male | \*\*-\*\*-1946 | 54\*\*\* | sclerosis |
-> | Male | \*\*-\*\*-1946 | 54\*\*\* | sclerosis |
-> | Female | \*\*-\*\*-1951 | 32\*\*\* | lung cancer |
-> | Female | \*\*-\*\*-1951 | 32\*\*\* | lung cancer |
-> | Female | \*\*-\*\*-1951 | 32\*\*\* | lung cancer |
+> | Male |* * - * * -1946 | 54 * * * | sclerosis |
+> | Male | * * - * * -1946 | 54 * * * | sclerosis |
+> | Female | * * - * * -1951 | 32 * * * | lung cancer |
+> | Female | * * - * * -1951 | 32 * * * | lung cancer |
+> | Female | * * - * * -1951 | 32 * * * | lung cancer |
 >
 > The data satisfies the No Record Isolation criterion since no record is unique in the dataset. However, looking at the first two records, this dataset reveals that all individuals born in 1946 and living in any postcode starting with 54 (and whose record was included in the dataset) have sclerosis.
 >
