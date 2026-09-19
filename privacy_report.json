@@ -1,0 +1,331 @@
+{
+  "generated_utc": "2026-09-19T06:41:41.256040+00:00",
+  "dataset": "out.csv",
+  "dataset_sha256": "c817c8decc9bc851351c48f9698dcd3386ac5780de6e016113c4db49600c7d74",
+  "rows": 1099340,
+  "columns": [
+    "time_start",
+    "imei",
+    "tp_dl_avg",
+    "tp_ul_avg",
+    "tp_dl_filtered_avg",
+    "cont_rtt_radio_avg",
+    "cont_rtt_internet_avg",
+    "initial_rtt_radio_avg",
+    "tcp_retrans_byte_ratio_downlink_avg",
+    "tcp_retrans_byte_ratio_uplink_avg",
+    "http_response_time_avg",
+    "http_sr_avg",
+    "data_GB_sum",
+    "im_video_GB_sum",
+    "im_audio_GB_sum",
+    "tethering_data_GB_dl_sum",
+    "radio_access_type",
+    "province",
+    "application_category",
+    "enb_id"
+  ],
+  "parameters": {
+    "csv": "out.csv",
+    "holdout": null,
+    "user_col": null,
+    "out": "privacy_report.json",
+    "demo": null,
+    "tz": "UTC",
+    "seed": 0,
+    "k_min": 10,
+    "max_share_below_k": 0.01,
+    "unicity_warn": 0.01,
+    "unicity_fail": 0.05,
+    "t_close": 0.3,
+    "n_samples": 500,
+    "n_attacks": 1000,
+    "max_users": 2000,
+    "scan_rows": 100000,
+    "mcc_mnc": "",
+    "msisdn_prefix": "",
+    "msisdn_digits": 9,
+    "max_candidates": 3000000,
+    "n_targets": 200
+  },
+  "python": "3.14.7",
+  "pandas": "3.0.6",
+  "numpy": "2.5.3",
+  "overall": "FAIL",
+  "results": [
+    {
+      "test": "T1 identifier scan",
+      "status": "FAIL",
+      "summary": "Identifier-shaped values in column(s): enb_id, imei. (15-digit IDs can hit several patterns; int columns such as cell IDs can be false positives.)",
+      "details": {
+        "findings": [
+          {
+            "column": "imei",
+            "pattern": "E.164 phone-like",
+            "share": 1.0
+          },
+          {
+            "column": "enb_id",
+            "pattern": "E.164 phone-like",
+            "share": 1.0
+          }
+        ]
+      }
+    },
+    {
+      "test": "T2 pseudonym brute-force",
+      "status": "SKIP",
+      "summary": "No subscriber column in file: nothing to attack.",
+      "details": {}
+    },
+    {
+      "test": "T3 k-anonymity / risk",
+      "status": "FAIL",
+      "summary": "k counted in rows (no subscriber column); k_min=10. Journalist risk needs a population table and equals prosecutor risk if the file is the whole population.",
+      "details": {
+        "by_qi_set": {
+          "all base QIs": {
+            "status": "FAIL",
+            "qi": [
+              "_hour",
+              "province",
+              "radio_access_type"
+            ],
+            "min_k": 1,
+            "median_k": 62380.0,
+            "share_k1": 0.0,
+            "share_below_k": 0.0,
+            "prosecutor_max_risk": 1.0,
+            "marketer_avg_risk": 0.0001
+          },
+          "base QIs + application": {
+            "status": "FAIL",
+            "qi": [
+              "_hour",
+              "province",
+              "radio_access_type",
+              "application_category"
+            ],
+            "min_k": 1,
+            "median_k": 4111.0,
+            "share_k1": 0.0001,
+            "share_below_k": 0.0008,
+            "prosecutor_max_risk": 1.0,
+            "marketer_avg_risk": 0.001
+          },
+          "base QIs + app + volumes (as released)": {
+            "status": "FAIL",
+            "qi": [
+              "_hour",
+              "province",
+              "radio_access_type",
+              "application_category",
+              "data_GB_sum",
+              "im_video_GB_sum",
+              "im_audio_GB_sum",
+              "tethering_data_GB_dl_sum"
+            ],
+            "min_k": 1,
+            "median_k": 1.0,
+            "share_k1": 0.9998,
+            "share_below_k": 0.9999,
+            "prosecutor_max_risk": 1.0,
+            "marketer_avg_risk": 0.9998
+          }
+        }
+      }
+    },
+    {
+      "test": "T4 trajectory unicity",
+      "status": "SKIP",
+      "summary": "Needs subscriber, time and cell columns.",
+      "details": {}
+    },
+    {
+      "test": "T5 home-cell exposure",
+      "status": "SKIP",
+      "summary": "Needs subscriber, time and cell columns.",
+      "details": {}
+    },
+    {
+      "test": "T6 metric fingerprint re-link",
+      "status": "SKIP",
+      "summary": "Needs subscriber, time and numeric metric columns.",
+      "details": {}
+    },
+    {
+      "test": "T7 value precision & outliers",
+      "status": "FAIL",
+      "summary": "Exact, rarely repeated values act as keys; round/bin them and top-code outliers.",
+      "details": {
+        "per_column": {
+          "data_GB_sum": {
+            "status": "FAIL",
+            "unique_value_share": 0.9997,
+            "decimals": 9,
+            "p50": 8.053594630010216e-05,
+            "p99_9": 1.4824484162595504,
+            "max": 250.81857095289232,
+            "max_over_p99_9_gt_10": true
+          },
+          "im_video_GB_sum": {
+            "status": "WARN",
+            "unique_value_share": 0.0031,
+            "decimals": 9,
+            "p50": 0.0,
+            "p99_9": 0.005525276433900987,
+            "max": 4.240879833289042,
+            "max_over_p99_9_gt_10": true
+          },
+          "im_audio_GB_sum": {
+            "status": "WARN",
+            "unique_value_share": 0.0111,
+            "decimals": 9,
+            "p50": 0.0,
+            "p99_9": 0.01064456501832041,
+            "max": 2.6788478077873177,
+            "max_over_p99_9_gt_10": true
+          },
+          "tethering_data_GB_dl_sum": {
+            "status": "WARN",
+            "unique_value_share": 0.158,
+            "decimals": 9,
+            "p50": 0.0,
+            "p99_9": 1.1486328814596365,
+            "max": 47.16650590443115,
+            "max_over_p99_9_gt_10": true
+          },
+          "tp_dl_avg": {
+            "status": "WARN",
+            "unique_value_share": 0.995,
+            "decimals": 9,
+            "p50": 0.0572549791764084,
+            "p99_9": 25.844854157091834,
+            "max": 438.7761681251786,
+            "max_over_p99_9_gt_10": true
+          },
+          "tp_ul_avg": {
+            "status": "WARN",
+            "unique_value_share": 1.0,
+            "decimals": 9,
+            "p50": 0.02740642831263505,
+            "p99_9": 1.4110094588059316,
+            "max": 59.650635599033144,
+            "max_over_p99_9_gt_10": true
+          },
+          "tp_dl_filtered_avg": {
+            "status": "WARN",
+            "unique_value_share": 1.0,
+            "decimals": 9,
+            "p50": 4.138588350202129,
+            "p99_9": 128.9258666559735,
+            "max": 494.15562687293846,
+            "max_over_p99_9_gt_10": false
+          },
+          "cont_rtt_radio_avg": {
+            "status": "WARN",
+            "unique_value_share": 0.9997,
+            "decimals": 9,
+            "p50": 85.41296763157702,
+            "p99_9": 1035.6427445251297,
+            "max": 13096.880123385256,
+            "max_over_p99_9_gt_10": true
+          },
+          "cont_rtt_internet_avg": {
+            "status": "WARN",
+            "unique_value_share": 0.9974,
+            "decimals": 9,
+            "p50": 76.602407660829,
+            "p99_9": 1720.3263390700447,
+            "max": 29580.11933351224,
+            "max_over_p99_9_gt_10": true
+          },
+          "initial_rtt_radio_avg": {
+            "status": "WARN",
+            "unique_value_share": 0.9988,
+            "decimals": 9,
+            "p50": 28.688609548473693,
+            "p99_9": 1553.6801276569374,
+            "max": 94705.93868882988,
+            "max_over_p99_9_gt_10": true
+          },
+          "tcp_retrans_byte_ratio_downlink_avg": {
+            "status": "WARN",
+            "unique_value_share": 1.0,
+            "decimals": 9,
+            "p50": 1.304693501849824e-06,
+            "p99_9": 0.9999992712414195,
+            "max": 0.9999997089552196,
+            "max_over_p99_9_gt_10": false
+          },
+          "tcp_retrans_byte_ratio_uplink_avg": {
+            "status": "WARN",
+            "unique_value_share": 1.0,
+            "decimals": 9,
+            "p50": 1.1927648000687166e-06,
+            "p99_9": 0.9999992595254273,
+            "max": 0.9999997553503888,
+            "max_over_p99_9_gt_10": false
+          },
+          "http_response_time_avg": {
+            "status": "PASS",
+            "unique_value_share": 0.0558,
+            "decimals": 9,
+            "p50": 0.0,
+            "p99_9": 657.1864083870736,
+            "max": 2901842.809965642,
+            "max_over_p99_9_gt_10": true
+          },
+          "http_sr_avg": {
+            "status": "WARN",
+            "unique_value_share": 0.9122,
+            "decimals": 9,
+            "p50": 0.949838590595914,
+            "p99_9": 1.8385042504092517,
+            "max": 2.2389253748271263,
+            "max_over_p99_9_gt_10": false
+          }
+        }
+      }
+    },
+    {
+      "test": "T8 l-diversity / t-closeness",
+      "status": "WARN",
+      "summary": "Among classes with >=10 records: 0.0% of records sit in classes where one category exceeds 90%; 0.3% in classes with TVD>0.3 from the global mix. Art.9-hint categories: ['VPN'].",
+      "details": {
+        "homogeneous_record_share": 0.0001,
+        "t_closeness_violation_share": 0.0029,
+        "art9_hint_categories": [
+          "VPN"
+        ],
+        "rare_categories_lt_1pct": {
+          "AI": 0.0035,
+          "Chat": 0.0011,
+          "File transfer": 0.0002,
+          "IoT": 0.0007,
+          "P2P": 0.0044,
+          "Remote access": 0.001,
+          "Speedtest": 0.0006,
+          "VoIP": 0.0003
+        }
+      }
+    },
+    {
+      "test": "T9 inference attack vs control",
+      "status": "PASS",
+      "summary": "Attack accuracy on members 14.1% (+/-2.2%) vs control 11.9% (+/-2.0%); inference risk=0.02 (warn>=0.05, fail>=0.2). Control set: internal 70/30 row split (no subscriber column).",
+      "details": {
+        "members_accuracy": 0.141,
+        "control_accuracy": 0.119,
+        "risk": 0.025,
+        "attacks_members": 1000,
+        "attacks_control": 1000,
+        "aux_columns": [
+          "_hour",
+          "province",
+          "radio_access_type"
+        ]
+      }
+    }
+  ]
+}
