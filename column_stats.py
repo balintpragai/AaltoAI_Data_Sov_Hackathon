@@ -3,6 +3,9 @@
 Per-column statistics for a CSV. String / name / id columns also get a
 value-distribution bar plot.
 
+Do not send this output to a model: it stores real `top_value` labels.
+Use `redacted_profile.py` for a privacy-review payload.
+
 Usage:
     python column_stats.py out.csv
     python column_stats.py out.csv --output-dir outputs
