@@ -24,14 +24,14 @@ def pseudonymize_value_imei(imei_value: int) -> int:
     Args:
         value: Original IMEI value
     Returns:
-        Pseudonymized IMEI value (first 8 digits correlating with device type and model)
+        Only the TAC (Type Allocation Code) part of the IMEI, which is the first 8 digits.
     """
 
     if not imei_value or imei_value == '':
         return None
 
     try:
-        imei_pseudonymized = imei_value // 10000000  #% 100000000  # Keep first 8 digits
+        imei_pseudonymized = imei_value // 10000000  # Keep first 8 digits
 
     except (ValueError, TypeError):
         imei_pseudonymized = None
