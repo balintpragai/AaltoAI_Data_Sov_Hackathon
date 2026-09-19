@@ -21,7 +21,9 @@ Pipeline
    near-unique float fingerprints that make individual records isolable.
 5. Enforce k-anonymity (No Record Isolation, section 3.4.1) over the
    remaining quasi-identifiers (time bucket, province, radio_access_type,
-   enb) by suppressing records whose combination occurs fewer than k times.
+   enb, application_category): attribute-suppress lowest-utility QIs on
+   small classes (application_category, then enb), recompute after each
+   pass, then record-suppress rows still below k. See docs/adr/0001-k-anonymity-suppression-walk.md.
 
 Usage:
     python guide_anonymize.py input.csv output.csv
@@ -45,7 +47,11 @@ DIRECT_IDENTIFIERS = ["msisdn", "imsi"]
 IMEI_COL = "imei"
 TIME_COL = "time_start"
 ENB_CANDIDATES = ("enb", "enb_id")
+APP_COL = "application_category"
 BASE_QI_COLUMNS = ["province", "radio_access_type"]
+# Lowest-utility first. time_start is never attribute-suppressed.
+SUPPRESSION_WALK = (APP_COL, "enb")
+RESTRICTED = "RESTRICTED"
 
 VOLUME_COLUMNS = [
     "data_GB_sum",
@@ -127,32 +133,74 @@ def round_numeric_precision(df: pd.DataFrame, report: dict, sig_figs: int) -> pd
     return df
 
 
-def enforce_k_anonymity(df: pd.DataFrame, report: dict, k_min: int) -> pd.DataFrame:
-    """No Record Isolation (guideline section 3.4.1): suppress any record whose
-    quasi-identifier combination is shared by fewer than k_min other records,
-    since a small enough class lets an entity single out those individuals."""
+def _qi_columns(df: pd.DataFrame) -> list[str]:
     enb_col = find_enb_col(df)
     qi_cols = [c for c in BASE_QI_COLUMNS if c in df.columns]
     if TIME_COL in df.columns:
         qi_cols = [TIME_COL] + qi_cols
     if enb_col:
         qi_cols = qi_cols + [enb_col]
+    if APP_COL in df.columns:
+        qi_cols = qi_cols + [APP_COL]
+    return qi_cols
 
+
+def _walk_columns(df: pd.DataFrame) -> list[str]:
+    cols: list[str] = []
+    for name in SUPPRESSION_WALK:
+        if name == "enb":
+            enb_col = find_enb_col(df)
+            if enb_col:
+                cols.append(enb_col)
+        elif name in df.columns:
+            cols.append(name)
+    return cols
+
+
+def _small_class_mask(df: pd.DataFrame, qi_cols: list[str], k_min: int) -> pd.Series:
+    class_size = df.groupby(qi_cols, dropna=False, observed=True)[qi_cols[0]].transform("size")
+    return class_size < k_min
+
+
+def _suppression_value(series: pd.Series):
+    """Numeric QIs (e.g. enb) cannot store the string sentinel."""
+    if pd.api.types.is_numeric_dtype(series):
+        return 0
+    return RESTRICTED
+
+
+def enforce_k_anonymity(df: pd.DataFrame, report: dict, k_min: int) -> pd.DataFrame:
+    """No Record Isolation (guideline section 3.4.1): attribute-suppress the
+    lowest-utility quasi-identifiers on small classes, then drop rows that
+    still sit in a class smaller than k_min."""
+    qi_cols = _qi_columns(df)
     if not qi_cols:
         report["k_anonymity"] = {"skipped": "no quasi-identifier columns present"}
         return df
 
-    class_size = df.groupby(qi_cols, dropna=False)[qi_cols[0]].transform("size")
-    below_k = class_size < k_min
+    df = df.copy()
+    passes: list[dict] = []
+    for column in _walk_columns(df):
+        below_k = _small_class_mask(df, qi_cols, k_min)
+        n_small = int(below_k.sum())
+        if n_small == 0:
+            break
+        sentinel = _suppression_value(df[column])
+        df.loc[below_k, column] = sentinel
+        passes.append({"column": column, "sentinel": sentinel, "rows_restricted": n_small})
+
+    below_k = _small_class_mask(df, qi_cols, k_min)
     n_dropped = int(below_k.sum())
+    kept = df.loc[~below_k].copy()
 
     report["k_anonymity"] = {
         "qi_columns": qi_cols,
         "k_min": k_min,
+        "attribute_suppression_passes": passes,
         "rows_dropped": n_dropped,
-        "rows_kept": int(len(df) - n_dropped),
+        "rows_kept": int(len(kept)),
     }
-    return df.loc[~below_k].copy()
+    return kept
 
 
 def anonymize(input_file: str, k_min: int, sig_figs: int) -> tuple[pd.DataFrame, dict]:

@@ -100,7 +100,7 @@ def main() -> None:
     p.add_argument(
         "--qi",
         nargs="+",
-        default=["_hour", "province", "radio_access_type"],
+        default=["_hour", "province", "radio_access_type", "application_category"],
         help="Quasi-identifier columns (default: _hour province radio_access_type)",
     )
     p.add_argument("--tz", default="UTC", help="Timezone used to bucket time_start into _hour")
