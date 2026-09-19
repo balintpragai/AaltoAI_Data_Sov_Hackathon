@@ -229,3 +229,18 @@ Raw CSV files copied to laptops, notebooks, shared drives, chat tools.
 - de Montjoye, Hidalgo, Verleysen, Blondel, "Unique in the Crowd: The privacy bounds of human mobility", *Scientific Reports* 3, 1376 (2013).
 - ISO/IEC 27001, 27701, 20889; NIST SP 800-188; NIST AI RMF 1.0; 3GPP TS 33.501.
 
+
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues in this repo, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical roles mapped 1:1: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
