@@ -31,12 +31,12 @@ These rules apply to every CSV file (`.csv`, and also `.tsv` or similar delimite
 
 
 
-### 1.2 Row limit: 10 rows maximum
+### 1.2 Row limit: 100 rows maximum
 
-- Even with approval, read no more than 10 rows per file. Header row plus 9 data rows, or header plus 10 data rows, is fine, as long as it never goes beyond 10 data rows.
-- Use bounded commands, for example `head -n 11 file.csv` or `pd.read_csv(path, nrows=10)`.
+- Even with approval, read no more than 100 rows per file. Header row plus 99 data rows, or header plus 100 data rows, is fine, as long as it never goes beyond 100 data rows.
+- Use bounded commands, for example `head -n 101 file.csv` or `pd.read_csv(path, nrows=100)`.
 - Never load a whole CSV into memory or print its full contents.
-- If a task needs more than 10 rows, stop and ask me. Do not work around the limit by reading in chunks or repeated passes.
+- If a task needs more than 100 rows, stop and ask me. Do not work around the limit by reading in chunks or repeated passes.
 
 
 
