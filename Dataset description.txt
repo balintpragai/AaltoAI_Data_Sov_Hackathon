@@ -16,7 +16,7 @@ The dataset:
 - data_GB_sum: Total data volume (download + upload) in gigabytes
 - im_video_GB_sum: Total download data volume for video application in gigabytes
 - im_audio_GB_sum: Total download data volume for audio application in gigabytes
-- tethering_data_GB_dl_sum: Total upload data volume in gigabytes via tethered device
+- tethering_data_GB_dl_sum: Total download data volume in gigabytes via tethered device
 - radio_access_type: The type of radio access technology used
 - province: The province where the event originates from
 - application_category: Type of application used

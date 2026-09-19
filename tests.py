@@ -585,7 +585,7 @@ def main():
                   rows=len(df), columns=[c for c in df.columns if not c.startswith("_")],
                   parameters={k: v for k, v in vars(a).items()}, python=platform.python_version(),
                   pandas=pd.__version__, numpy=np.__version__, overall=overall, results=results)
-    out_path = Path("outputs") / Path(a.out)
+    out_path = Path(a.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(report, f, indent=2, default=lambda o: o.item() if hasattr(o, "item") else str(o))
