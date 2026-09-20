@@ -6,9 +6,16 @@
 #
 # After every step, type:
 #   go next step
-#       continue
+#       continue to the next file
 #   rerun [extra arguments...]
 #       run the same step again; extra arguments are appended to the defaults
+#   rerun previous [extra arguments...]
+#       go back one step and run that file (optional extra arguments)
+#   rerun <n> [extra arguments...]
+#       run step number n (1–5), including earlier files
+#   rerun <name> [extra arguments...]
+#       same, by short name (guide_anonymize, redacted_profile, privacy_review,
+#       tests, linkage_analysis)
 #   quit
 #       stop
 #
@@ -32,12 +39,25 @@ PRIVACY_REPORT="outputs/privacy_report.json"
 LINKAGE_REPORT="outputs/linkage_report.json"
 LINKAGE_VIOLATIONS="outputs/linkage_violations.csv"
 
+STEP_NAMES=(
+  ""
+  "guide_anonymize"
+  "redacted_profile"
+  "privacy_review"
+  "tests"
+  "linkage_analysis"
+)
+N_STEPS=5
+
 LOG_DIR="outputs/pipeline_logs"
 mkdir -p "$LOG_DIR" outputs
 
 usage() {
   echo "Usage: $0 <input.csv>" >&2
-  echo "  After each step: 'go next step'  or  'rerun [extra args]'" >&2
+  echo "  After each step: 'go next step'" >&2
+  echo "                   'rerun [args]'                 (this step)" >&2
+  echo "                   'rerun previous [args]'        (previous file)" >&2
+  echo "                   'rerun <n|name> [args]'        (any step 1–5)" >&2
   exit 1
 }
 
@@ -91,7 +111,7 @@ run_cmd() {
   if [[ $rc -eq 0 ]]; then
     echo "Finished OK (exit 0)."
   else
-    echo "Finished with exit code $rc (you can rerun this step)."
+    echo "Finished with exit code $rc (you can rerun this or a previous step)."
   fi
   return 0
 }
@@ -107,12 +127,89 @@ list_existing() {
   done
 }
 
-prompt_next_or_rerun() {
-  # stdout is only: next | rerun | rerun <args> | quit
-  local line extra
+show_artefacts() {
+  local n="$1"
+  echo "Expected artefacts:"
+  case "$n" in
+    1) list_existing "$ANON_CSV" "$ANON_REPORT" ;;
+    2) list_existing "$PROFILE_JSON" ;;
+    3) list_existing "$REVIEW_JSON" "$REVIEW_MD" "outputs/privacy_review_calls.jsonl" ;;
+    4) list_existing "$PRIVACY_REPORT" ;;
+    5) list_existing "$LINKAGE_REPORT" "$LINKAGE_VIOLATIONS" ;;
+  esac
+}
+
+resolve_step() {
+  local token="$1"
+  local i
+  case "$token" in
+    [1-5])
+      echo "$token"
+      return 0
+      ;;
+  esac
+  for i in $(seq 1 "$N_STEPS"); do
+    if [[ "${STEP_NAMES[$i]}" == "$token" ]]; then
+      echo "$i"
+      return 0
+    fi
+  done
+  return 1
+}
+
+run_step() {
+  local n="$1"
+  shift
+  local -a extra=("$@")
+  local name="${STEP_NAMES[$n]}"
+  local log="$LOG_DIR/step${n}_${name}.log"
+  local -a cmd
+
+  case "$n" in
+    1) cmd=("$PYTHON" guide_anonymize.py "$INPUT_CSV" "$ANON_NAME") ;;
+    2) cmd=("$PYTHON" redacted_profile.py "$ANON_CSV" --subject release_candidate) ;;
+    3) cmd=("$PYTHON" privacy_review.py request "$PROFILE_JSON" -o "$REVIEW_JSON") ;;
+    4) cmd=("$PYTHON" tests.py "$ANON_CSV" --out "$PRIVACY_REPORT") ;;
+    5) cmd=("$PYTHON" src/linkage_analysis.py --input "$ANON_CSV" --out "$LINKAGE_REPORT" --violations-out "$LINKAGE_VIOLATIONS") ;;
+    *)
+      echo "Unknown step $n" >&2
+      return 1
+      ;;
+  esac
+
+  echo "============================================================"
+  echo "Step $n: $name"
+  echo "============================================================"
+
+  if [[ ${#extra[@]} -gt 0 ]]; then
+    run_cmd "$log" "${cmd[@]}" "${extra[@]}"
+  else
+    run_cmd "$log" "${cmd[@]}"
+  fi
+
+  echo
+  echo "It ran: $name (step $n)"
+  echo "Captured stdout/stderr: $ROOT/$log"
+  show_artefacts "$n"
+}
+
+prompt_after_step() {
+  # stdout: next | quit | rerun <n> [args...]
+  local current="$1"
+  local line first rest target
   while true; do
     echo >&2
-    echo "Type 'go next step' to continue, or 'rerun' plus extra arguments to rerun this step." >&2
+    echo "You are after step $current (${STEP_NAMES[$current]})." >&2
+    if [[ "$current" -gt 1 ]]; then
+      echo "Previous files: $(seq -s ', ' 1 "$((current - 1))") — or names: ${STEP_NAMES[*]:1:$((current - 1))}" >&2
+    fi
+    echo "Type:" >&2
+    echo "  go next step" >&2
+    echo "  rerun [extra args]                 (this file again)" >&2
+    if [[ "$current" -gt 1 ]]; then
+      echo "  rerun previous [extra args]        (previous file)" >&2
+      echo "  rerun <n|name> [extra args]        (any earlier or current file)" >&2
+    fi
     echo -n "> " >&2
     IFS= read -r line || exit 1
     case "$line" in
@@ -125,91 +222,78 @@ prompt_next_or_rerun() {
         return 0
         ;;
       rerun)
-        echo "rerun"
+        echo "rerun $current"
         return 0
         ;;
       rerun\ *)
-        extra="${line#rerun }"
-        echo "rerun ${extra}"
+        rest="${line#rerun }"
+        first="${rest%% *}"
+        if [[ "$first" == "previous" || "$first" == "prev" || "$first" == "back" ]]; then
+          if [[ "$current" -le 1 ]]; then
+            echo "There is no previous step." >&2
+            continue
+          fi
+          if [[ "$rest" == "$first" ]]; then
+            echo "rerun $((current - 1))"
+          else
+            echo "rerun $((current - 1)) ${rest#* }"
+          fi
+          return 0
+        fi
+        if target="$(resolve_step "$first")"; then
+          if [[ "$target" -gt "$current" ]]; then
+            echo "Step $target has not been reached yet. Stay on 1–$current." >&2
+            continue
+          fi
+          if [[ "$rest" == "$first" ]]; then
+            echo "rerun $target"
+          else
+            echo "rerun $target ${rest#* }"
+          fi
+          return 0
+        fi
+        echo "rerun $current $rest"
         return 0
         ;;
       *)
-        echo "Not recognised. Use exactly: go next step   or   rerun [args]" >&2
+        echo "Not recognised. Examples: go next step | rerun --k-min 20 | rerun previous | rerun 1 --k-min 5" >&2
         ;;
     esac
   done
 }
 
-step_loop() {
-  local n="$1"
-  local name="$2"
-  local log="$LOG_DIR/step${n}_${name}.log"
-  shift 2
-  local -a base_cmd=("$@")
-  local -a extra=()
-  local reply rest
+current=1
+extra=()
 
-  echo "============================================================"
-  echo "Step $n: $name"
-  echo "============================================================"
+while [[ "$current" -le "$N_STEPS" ]]; do
+  run_step "$current" "${extra[@]+"${extra[@]}"}"
+  extra=()
 
-  while true; do
-    if [[ ${#extra[@]} -gt 0 ]]; then
-      run_cmd "$log" "${base_cmd[@]}" "${extra[@]}"
-    else
-      run_cmd "$log" "${base_cmd[@]}"
-    fi
-    extra=()
-
-    echo
-    echo "It ran: $name"
-    echo "Captured stdout/stderr: $ROOT/$log"
-    echo "Expected artefacts:"
-    case "$n" in
-      1) list_existing "$ANON_CSV" "$ANON_REPORT" ;;
-      2) list_existing "$PROFILE_JSON" ;;
-      3) list_existing "$REVIEW_JSON" "$REVIEW_MD" "outputs/privacy_review_calls.jsonl" ;;
-      4) list_existing "$PRIVACY_REPORT" ;;
-      5) list_existing "$LINKAGE_REPORT" "$LINKAGE_VIOLATIONS" ;;
-    esac
-
-    reply="$(prompt_next_or_rerun)"
-    case "$reply" in
-      next)
-        return 0
-        ;;
-      quit)
-        echo "Stopped after step $n."
-        exit 0
-        ;;
-      rerun)
-        echo "Rerunning step $n with the same default arguments."
-        ;;
-      rerun\ *)
-        rest="${reply#rerun }"
+  reply="$(prompt_after_step "$current")"
+  case "$reply" in
+    next)
+      current=$((current + 1))
+      ;;
+    quit)
+      echo "Stopped after step $((current))."
+      exit 0
+      ;;
+    rerun\ *)
+      rest="${reply#rerun }"
+      first="${rest%% *}"
+      current="$first"
+      if [[ "$rest" == "$first" ]]; then
+        extra=()
+        echo "Rerunning step $current (${STEP_NAMES[$current]}) with default arguments."
+      else
         # shellcheck disable=SC2206
-        extra=($rest)
-        echo "Rerunning step $n with extra arguments: ${extra[*]}"
-        ;;
-    esac
-  done
-}
-
-step_loop 1 guide_anonymize \
-  "$PYTHON" guide_anonymize.py "$INPUT_CSV" "$ANON_NAME"
-
-step_loop 2 redacted_profile \
-  "$PYTHON" redacted_profile.py "$ANON_CSV" --subject release_candidate
-
-step_loop 3 privacy_review \
-  "$PYTHON" privacy_review.py request "$PROFILE_JSON" -o "$REVIEW_JSON"
-
-step_loop 4 tests \
-  "$PYTHON" tests.py "$ANON_CSV" --out "$PRIVACY_REPORT"
-
-step_loop 5 linkage_analysis \
-  "$PYTHON" src/linkage_analysis.py --input "$ANON_CSV" --out "$LINKAGE_REPORT" --violations-out "$LINKAGE_VIOLATIONS"
+        extra=(${rest#* })
+        echo "Rerunning step $current (${STEP_NAMES[$current]}) with extra arguments: ${extra[*]}"
+      fi
+      ;;
+  esac
+done
 
 echo
-echo "All five steps completed (or skipped via quit)."
+echo "All five steps completed."
 echo "Logs are under $ROOT/$LOG_DIR/"
