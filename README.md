@@ -115,6 +115,70 @@ Writes `outputs/kanon.csv` and a JSON report (default `outputs/kanon_report.json
 
 ---
 
+## How to use `attack_baseline.py`
+
+Scripted re-identification baseline for a `guide_anonymize.py`-style release. It scores attacks against **ground truth**, so it is for **synthetic** data only (or a file you have already tagged with `gt_user` / `gt_row_id`). Scoring columns are never used as attack features: the checks look at anonymised columns except `gt_*`.
+
+Requires **pandas** and **numpy**. Optional: **scikit-learn** for the restricted `application_category` recovery check. Without it that metric is recorded as `"scikit-learn not installed"`.
+
+Typical workflow:
+
+```bash
+# 1. Copy msisdn into gt_user and add a stable row id (they pass through the anonymiser)
+python attack_baseline.py --add-gt raw.csv raw_with_gt.csv
+
+# 2. Anonymise that file yourself (example)
+python guide_anonymize.py raw_with_gt.csv anon_with_gt.csv --k-min 10 --sig-figs 3
+
+# 3. Score the anonymised file against the tagged raw file
+python attack_baseline.py --raw raw_with_gt.csv --anon outputs/anon_with_gt.csv \
+  --k-min 10 --sig-figs 3 --tz-offset 2 --report attack_report.json
+```
+
+`--anon` is required unless you use `--selftest` or `--add-gt`. `--raw` is optional for a few format/k/TAC/uniqueness checks, but home/work, unsuppress, drop rates, and point uniqueness need both files.
+
+Harness-only dry run (builds synthetic users, applies a **reference** re-implementation of the documented pipeline, then attacks it — not `guide_anonymize.py` itself):
+
+```bash
+python attack_baseline.py --selftest
+```
+
+The script prints the full JSON, a short `=== HEADLINE ===` block, and writes `--report` (default `attack_report.json`). Give an agent the anonymised CSV **without** `gt_user` and `gt_row_id`. Scenario-style follow-ups: [`docs/l2_scenario_guide.md`](docs/l2_scenario_guide.md).
+
+Checks in the report:
+
+
+| Key                 | What it measures |
+| ------------------- | ---------------- |
+| `format`            | Direct IDs still present, index-like columns, IMEI length, row-order leak vs shuffle, extra precision beyond `--sig-figs` |
+| `k_anonymity`       | Share of QI classes / rows with fewer than `--k-min` distinct users |
+| `tac_pseudo_id`     | How often TAC (truncated IMEI) is shared by ≤1 / 3 / 5 / 10 users |
+| `uniqueness`        | Row uniqueness on QI, QI+TAC, KPI tuple, and combinations |
+| `l_diversity`       | QI classes where tethering / video / audio volume is all-positive or all-negative |
+| `linking`           | Match consecutive hours within TAC+province by KPI similarity vs chance |
+| `home_work`         | Guess home/work cell from TAC mode in night / weekday-office windows (needs `--raw`) |
+| `unsuppress`        | Recover `RESTRICTED` app category (sklearn) and `enb_id==0` from nearby same-TAC cells (needs `--raw`) |
+| `suppression`       | Share of restricted app / zero cell, flag rate by hour/province; with `--raw`, dropped rows and hour–province differencing |
+| `point_uniqueness`  | de Montjoye-style: n known (hour, cell) points, with and without TAC (needs `--raw`; oracle row-linking, worst case for the defender) |
+
+
+| Flag           | Default              | Meaning |
+| -------------- | -------------------- | ------- |
+| `--add-gt IN OUT` | —                 | Copy `msisdn` → `gt_user`, add `gt_row_id`, write `OUT`; then exit |
+| `--selftest`   | off                  | Synthetic data + reference anonymiser, then run attacks |
+| `--raw`        | —                    | Tagged raw CSV (`gt_user`, `gt_row_id`) |
+| `--anon`       | —                    | Tagged anonymised CSV (required unless `--selftest` / `--add-gt`) |
+| `--k-min`      | `10`                 | k used in the k-anonymity check (and in `--selftest` anonymisation) |
+| `--sig-figs`   | `3`                  | Precision expected in the format check (and `--selftest` rounding) |
+| `--tz-offset`  | `0`                  | Hours added to UTC for night (00–05) and work (09–16 weekday) windows |
+| `--trials`     | `300`                | Samples per n in `point_uniqueness` |
+| `--seed`       | `0`                  | RNG for unsuppress sampling and point uniqueness |
+| `--report`     | `attack_report.json` | JSON report path |
+
+`--add-gt` needs an `msisdn` column. `--anon` needs `gt_user` (see `--add-gt`).
+
+---
+
 ## How to use `redacted_profile.py`
 
 Builds a **redacted column profile** from a CSV. This is the only stats object allowed to leave the processing environment. Do **not** send `column_stats.py` output to a model (it stores `top_value` and identifier plots).
