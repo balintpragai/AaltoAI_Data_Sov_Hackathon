@@ -103,6 +103,120 @@ Non-numeric values are treated as missing and dropped for that pair. Unknown col
 
 ---
 
+## How to use `guide_anonymize.py`
+
+Transforms a raw schema CSV into a release candidate (drop `msisdn`/`imsi`, TAC-only `imei`, hour-bucket `time_start`, round metrics, then k-anonymity). Full column-by-column notes: [`docs/guide_anonymize.md`](docs/guide_anonymize.md).
+
+```bash
+python guide_anonymize.py input.csv kanon.csv --k-min 10 --sig-figs 3
+```
+
+Writes `outputs/kanon.csv` and a JSON report (default `outputs/kanon_report.json`). Then run `python tests.py outputs/kanon.csv`.
+
+---
+
+## How to use `redacted_profile.py`
+
+Builds a **redacted column profile** from a CSV. This is the only stats object allowed to leave the processing environment. Do **not** send `column_stats.py` output to a model (it stores `top_value` and identifier plots).
+
+The profile keeps counts, missingness, uniqueness, and coarse numeric quantiles. It strips identifier values, cell IDs (`enb` / `enb_id`), and non-allowlisted category labels. Allowlisted labels (`province`, `radio_access_type`, `application_category`) are k-suppressed: rare values are omitted or rolled into `OTHER`.
+
+Humans run this on real CSVs. Automated tests use synthetic frames only. Do not commit the JSON; keep it under `outputs/` (gitignored).
+
+```bash
+python redacted_profile.py input.csv --subject raw -o outputs/profile_raw.json
+python redacted_profile.py release.csv --subject release_candidate --k-min 10
+```
+
+That:
+
+1. Reads the CSV
+2. Redacts each column by kind (identifier / enb / allowlisted categorical / numeric / other)
+3. Writes JSON with `subject`, `redaction.stripped`, per-column stats, and `profile_sha256`
+
+If `-o` is omitted, the default path is `outputs/profile_<subject>.json`.
+
+
+| Flag         | Default | Meaning                                                                 |
+| ------------ | ------- | ----------------------------------------------------------------------- |
+| `csv`        | —       | Input CSV (required)                                                    |
+| `--subject`  | —       | `raw` or `release_candidate` (required)                                 |
+| `--k-min`    | `10`    | Minimum count before an allowlisted category label is kept              |
+| `--sig-figs` | `3`     | Significant figures for numeric min/max and percentiles                 |
+| `-o` / `--output` | `outputs/profile_<subject>.json` | JSON output path |
+
+
+---
+
+## How to use `privacy_review.py`
+
+Advisory review of a **redacted profile** only — never rows, never `column_stats.py` output. It does not run inside `guide_anonymize.py` and does not write pipeline column lists. Decision: [`docs/adr/0002-privacy-review-not-in-the-transform.md`](docs/adr/0002-privacy-review-not-in-the-transform.md).
+
+Point `PRIVACY_REVIEW_BASE_URL` at an **EU/on-prem** OpenAI-compatible host (not `api.openai.com`). The review JSON stays under `outputs/` until a human checks it for leaked labels. Promoting markdown into git is a human step.
+
+Typical flow:
+
+```bash
+export PRIVACY_REVIEW_BASE_URL=https://your-eu-host.example/v1
+export PRIVACY_REVIEW_MODEL=your-model
+# export PRIVACY_REVIEW_API_KEY=...   # optional Bearer token; never commit
+
+python privacy_review.py request outputs/profile_raw.json -o outputs/review_raw.json
+python privacy_review.py render outputs/review_raw.json
+python privacy_review.py sign outputs/review_raw.json --suggestion-id col:enb \
+  --disposition accepted --by ada --role data_owner
+python privacy_review.py must-answer outputs/review_release.json --question-id q1 --on --by ada --role data_owner
+python privacy_review.py answer outputs/review_release.json --question-id q1 --text "..." --by ada --role data_owner
+python privacy_review.py share-check outputs/review_release.json
+python privacy_review.py promote outputs/review_release.json --markdown docs/privacy-reviews/review.md
+```
+
+`request` also writes a sibling `.md` next to the review JSON. Call logs append to `outputs/privacy_review_calls.jsonl`.
+
+Environment (for `request` unless `--offline-json`):
+
+
+| Variable                    | Meaning                                                                 |
+| --------------------------- | ----------------------------------------------------------------------- |
+| `PRIVACY_REVIEW_BASE_URL`   | OpenAI-compatible base URL (`…/v1` or full `…/chat/completions`)         |
+| `PRIVACY_REVIEW_MODEL`      | Model name                                                              |
+| `PRIVACY_REVIEW_API_KEY`    | Optional Bearer token                                                   |
+| `PRIVACY_REVIEW_TIMEOUT`    | HTTP timeout in seconds (default `60`)                                  |
+
+
+Subcommands:
+
+
+| Command        | What it does |
+| -------------- | ------------ |
+| `request`      | Call the model (or `--offline-json`) with a redacted profile; write review JSON + markdown. Refuses profiles that look like `column_stats` (`top_value`). |
+| `render`       | Print the review as markdown, or write it with `-o`. |
+| `sign`         | Set a column suggestion disposition (`accepted` / `rejected` / `deferred`). Accepting a direct identifier or quasi-identifier requires `--role data_owner`. |
+| `must-answer`  | Human flags an open question as blocking (`--on`) or not (`--no-on`). |
+| `answer`       | Record the answer text for a question. |
+| `share-check`  | Whether a **release_candidate** review has no unanswered must-answer questions. Exit `0` if so; `1` if a must-answer is still open; `2` if the subject is not `release_candidate` (raw is never shareable). Still not legally anonymous. |
+| `promote`      | Copy rendered markdown to a path you may commit after a human leak check. Do not copy the JSON profile into git. |
+
+
+| Flag / argument | Used by | Meaning |
+| --------------- | ------- | ------- |
+| `profile` | `request` | Path to redacted profile JSON |
+| `review` | all others | Path to review JSON |
+| `-o` / `--output` | `request`, `render` | Review JSON path (`request`; default `outputs/review_<subject>.json`) or markdown path (`render`; default stdout) |
+| `--offline-json` | `request` | Skip HTTP; parse this file as model JSON (tests / air-gap) |
+| `--suggestion-id` | `sign` | Column suggestion id, e.g. `col:enb` |
+| `--disposition` | `sign` | `accepted`, `rejected`, or `deferred` |
+| `--question-id` | `must-answer`, `answer` | Open question id, e.g. `q1` |
+| `--on` / `--no-on` | `must-answer` | Set `must_answer` true (default) or false |
+| `--text` | `answer` | Answer body |
+| `--by` | `sign`, `must-answer`, `answer` | Who recorded the action |
+| `--role` | `sign`, `must-answer`, `answer` | `engineer` or `data_owner` |
+| `--markdown` | `promote` | Destination markdown path |
+
+Synthetic tests: `python test_privacy_review.py`.
+
+---
+
 ## Expected columns
 
 The suite is built for this schema (`Dataset description.txt`):
